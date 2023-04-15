@@ -1,0 +1,8 @@
+services:
+  bot:
+    image: ghcr.io/lawliet89/weather-oxide:latest
+    environment:
+      CONFIG_FILE: /volume/config.hcl
+    volumes:
+      - source: ./config
+        target: /volume

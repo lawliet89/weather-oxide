@@ -56,7 +56,7 @@ jobs:
         with:
           name: ${{ inputs.target }}
           path: |
-            target/${{ inputs.target }}/release/telegram-dice-maestro-oxide*
+            target/${{ inputs.target }}/release/weather-oxide*
 
       - name: Upload binary artifact (debug)
         uses: actions/upload-artifact@v3
@@ -64,4 +64,4 @@ jobs:
         with:
           name: ${{ inputs.target }}
           path: |
-            target/${{ inputs.target }}/debug/telegram-dice-maestro-oxide*
+            target/${{ inputs.target }}/debug/weather-oxide*
