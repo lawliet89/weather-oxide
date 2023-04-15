@@ -1,9 +1,8 @@
 mod cli;
 
 use clap::Parser;
-
-use openweathermap_client::models::{City, UnitSystem};
-use openweathermap_client::{Client, ClientOptions};
+use openweathermap_client::models::{City, Weather};
+use tokio_stream::StreamExt;
 
 /// Gets the temperature in °C and description of the weather in Paris right now
 #[tokio::main]
@@ -12,17 +11,25 @@ async fn main() -> Result<(), anyhow::Error> {
         .filter_level(log::LevelFilter::Info)
         .init();
     let cli = cli::Cli::parse();
-    let options = ClientOptions {
-        units: UnitSystem::Metric,
-        language: "en".to_string(),
-        api_key: cli.get_token()?,
-    };
-    let client = Client::new(options)?;
-    let reading = client.fetch_weather(&City::new("Paris", "FR")).await?;
+    log::info!("Reading configuration file...");
+    let config = cli.config()?;
 
-    println!(
-        "The temperature and weather in France in French is {}, {}",
-        reading.main.temp, reading.weather[0].description
-    );
+    let client = config.client()?;
+    let weather = client.get_weather();
+
+    tokio::pin!(weather);
+
+    while let Some(city) = weather.next().await {
+        // println!("got = {:?}", city);
+        // let weather = city.unwrap();
+    }
+
+    // println!("{:?}", weather);
+    // let reading = client.fetch_weather(&City::new("Paris", "FR")).await?;
+
+    // println!(
+    //     "The temperature and weather in France in French is {}, {}",
+    //     reading.main.temp, reading.weather[0].description
+    // );
     Ok(())
 }

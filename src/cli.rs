@@ -1,35 +1,100 @@
-use anyhow::anyhow;
+use std::fs::File;
+use std::future::Future;
+use std::time::Duration;
+
+use anyhow::Context;
 use clap::Parser;
+use openweathermap_client::error::ApiCallError;
+use openweathermap_client::models::{CityId, CurrentWeather, UnitSystem};
+use openweathermap_client::{Client, ClientOptions};
+use serde::{Deserialize, Serialize};
+use tokio_stream::Stream;
+use tokio_stream::StreamExt;
 
 /// Fetch weather information periodically
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
-    /// Path to file containing Telegram Bot Token
-    #[arg(long, env)]
-    pub api_token_file: Option<String>,
-
-    /// Bot token. **Highly recommended that this is not set via command line, because it will show up in running processes.**
-    #[arg(long, env, required_unless_present("api_token_file"))]
-    pub api_token: Option<String>,
+    /// Path to Configuration File
+    #[arg(env)]
+    config_file: String,
 }
 
 impl Cli {
-    pub fn get_token(&self) -> anyhow::Result<String> {
-        get_token(self.api_token.as_ref(), self.api_token_file.as_ref())
+    pub fn config(&self) -> Result<Config, anyhow::Error> {
+        let mut config_file = File::open(&self.config_file)
+            .with_context(|| format!("error opening config file {}", self.config_file))?;
+        let config = hcl::from_reader(&mut config_file).with_context(|| "error reading HCL")?;
+        Ok(config)
     }
 }
 
-fn get_token<S1, S2>(token: Option<S1>, file: Option<S2>) -> anyhow::Result<String>
-where
-    S1: std::string::ToString,
-    S2: AsRef<std::path::Path>,
-{
-    if let Some(token) = token.as_ref() {
-        return Ok(token.to_string());
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Config {
+    pub api_key: String,
+    pub city_ids: Vec<u32>,
+
+    pub output: Output,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Output {
+    directory: String,
+    #[serde(default = "default_delimiter")]
+    delimiter: char,
+    #[serde(default = "default_extension")]
+    extension: String,
+}
+
+impl Config {
+    pub fn client(&self) -> Result<ConfigClient, anyhow::Error> {
+        ConfigClient::new(self)
     }
-    if let Some(file) = file.as_ref() {
-        return Ok(std::fs::read_to_string(file)?.trim().to_string());
+
+    fn api_client(&self) -> Result<Client, anyhow::Error> {
+        let options = ClientOptions {
+            units: UnitSystem::Metric,
+            language: "en".to_string(),
+            api_key: self.api_key.clone(),
+        };
+        let client = Client::new(options).with_context(|| "error making OpenWeatherMap Client")?;
+        Ok(client)
     }
-    Err(anyhow!("No API Key provided"))
+}
+
+pub struct ConfigClient {
+    config: Config,
+    client: Client,
+    city_ids: Vec<CityId>,
+}
+
+impl ConfigClient {
+    fn new(config: &Config) -> Result<Self, anyhow::Error> {
+        let client = config.api_client()?;
+        let city_ids = config.city_ids.iter().map(|id| CityId::new(*id)).collect();
+
+        Ok(Self {
+            config: config.clone(),
+            client,
+            city_ids,
+        })
+    }
+
+    pub fn get_weather<'a>(&'a self) -> impl Stream + 'a {
+        tokio_stream::iter(self.city_ids.iter())
+            .throttle(std::time::Duration::from_secs(1))
+            .map(|id|{
+                log::info!("Fetching weather for {}", id);
+                self.client.fetch_weather(id)
+            })
+            .timeout(Duration::from_secs(5))
+    }
+}
+
+fn default_delimiter() -> char {
+    ','
+}
+
+fn default_extension() -> String {
+    "csv".to_string()
 }

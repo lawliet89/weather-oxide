@@ -9,8 +9,11 @@ edition = "2021"
 anyhow = "1.0.70"
 clap = { version = "4.2.1", features = ["derive", "env"] }
 csv = "1.2.1"
+hcl-rs = "0.14.0"
 log = "0.4"
 openweathermap_client = "0.1.1"
 pretty_env_logger = "0.4"
+serde = { version = "1.0.159", features = ["derive"] }
 # thiserror = "1.0.40"
 tokio = { version =  "1", features = ["rt-multi-thread", "macros"] }
+tokio-stream = { version = "0.1.12", features = ["time"] }
