@@ -27,6 +27,7 @@ impl ConfigClient {
         })
     }
 
+    #[allow(clippy::needless_lifetimes)]
     pub fn get_weather<'a>(
         &'a self,
     ) -> impl Stream<
