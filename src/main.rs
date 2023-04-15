@@ -20,7 +20,7 @@ async fn main() -> Result<(), anyhow::Error> {
     tokio::pin!(weather);
 
     while let Some(city) = weather.next().await {
-        // println!("got = {:?}", city);
+        println!("{:?}", city.unwrap().await);
         // let weather = city.unwrap();
     }
 

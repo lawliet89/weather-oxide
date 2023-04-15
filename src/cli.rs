@@ -2,8 +2,9 @@ use std::fs::File;
 use std::future::Future;
 use std::time::Duration;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
+use futures::TryFutureExt;
 use openweathermap_client::error::ApiCallError;
 use openweathermap_client::models::{CityId, CurrentWeather, UnitSystem};
 use openweathermap_client::{Client, ClientOptions};
@@ -80,14 +81,19 @@ impl ConfigClient {
         })
     }
 
-    pub fn get_weather<'a>(&'a self) -> impl Stream + 'a {
+    pub fn get_weather<'a>(
+        &'a self,
+    ) -> impl Stream<
+        Item = Result<impl Future<Output = Result<CurrentWeather, anyhow::Error>>  + 'a, anyhow::Error>,
+    > + 'a {
         tokio_stream::iter(self.city_ids.iter())
             .throttle(std::time::Duration::from_secs(1))
-            .map(|id|{
+            .map(|id| {
                 log::info!("Fetching weather for {}", id);
-                self.client.fetch_weather(id)
+                self.client.fetch_weather(id).map_err(|e| anyhow!(e))
             })
             .timeout(Duration::from_secs(5))
+            .map(|res| res.map_err(|e| anyhow!(e)))
     }
 }
 
