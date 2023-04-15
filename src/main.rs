@@ -1,4 +1,6 @@
 mod cli;
+mod client;
+mod data;
 
 use clap::Parser;
 use tokio_stream::StreamExt;
@@ -20,9 +22,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     while let Some(result) = weather.next().await {
         match result.await {
-            Ok(reading) => {
-                println!("{:?}", reading);
-            }
+            Ok(call) => match call {
+                Ok(weather) => log::info!("{:?}", weather),
+                Err(e) => log::error!("error calling api: {e}"),
+            },
             Err(e) => {
                 log::error!("timeout fetching {e}");
             }
