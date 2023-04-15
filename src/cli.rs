@@ -36,11 +36,11 @@ pub struct Config {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Output {
-    directory: String,
+    pub directory: String,
     #[serde(default = "default_delimiter")]
-    delimiter: char,
+    pub delimiter: char,
     #[serde(default = "default_extension")]
-    extension: String,
+    pub extension: String,
 }
 
 impl Config {

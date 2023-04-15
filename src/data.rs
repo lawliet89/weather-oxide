@@ -1,12 +1,21 @@
-use chrono::{DateTime, NaiveDateTime, Utc};
-use openweathermap_client::models::CurrentWeather;
-use serde::{Deserialize, Serialize};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
 
-#[derive(Serialize, Deserialize, Debug)]
+use anyhow::Context;
+use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
+use openweathermap_client::models::CurrentWeather;
+use serde::Serialize;
+
+#[derive(Serialize, Debug)]
 #[serde(rename_all = "PascalCase")]
 pub struct LegacyRecord {
+    #[serde(rename = "")]
+    index: u8,
+
     /// City
-    city: String,
+    pub city: String,
 
     // Weather
     /// Description
@@ -82,6 +91,43 @@ pub struct LegacyRecord {
     latitude: f64,
     // Longitude
     longtitude: f64,
+
+    #[serde(skip_serializing)]
+    date_time: DateTime<Utc>,
+}
+
+impl LegacyRecord {
+    pub fn path<P: AsRef<Path>>(&self, base: P, extension: &str) -> PathBuf {
+        let mut path = PathBuf::new();
+        path.push(base.as_ref());
+        path.push(&self.city);
+
+        path.push(format!("{}.{}", self.date_time.year(), extension));
+
+        path
+    }
+
+    pub fn append<P: AsRef<Path>>(
+        &self,
+        base: P,
+        extension: &str,
+        delimiter: char,
+    ) -> Result<(), anyhow::Error> {
+        let file = File::options()
+            .create(true)
+            .append(true)
+            .open(self.path(base, extension))
+            .with_context(|| "cannot open file to append")?;
+
+        let mut writer = csv::WriterBuilder::new()
+            .delimiter(delimiter as u8)
+            .has_headers(false)
+            .from_writer(file);
+        writer
+            .serialize(self)
+            .with_context(|| "error writing record")?;
+        Ok(())
+    }
 }
 
 impl From<CurrentWeather> for LegacyRecord {
@@ -107,17 +153,19 @@ impl From<CurrentWeather> for LegacyRecord {
         let time = date_time.format("%Y-%m-%d %H:%M:%S");
 
         let (rain_3h, rain_1h) = match weather.rain {
-          None => (0.0, 0.0),
-          Some(precip) => {
-            (precip.three_hour.unwrap_or_default(), precip.one_hour.unwrap_or_default())
-          }
+            None => (0.0, 0.0),
+            Some(precip) => (
+                precip.three_hour.unwrap_or_default(),
+                precip.one_hour.unwrap_or_default(),
+            ),
         };
 
         let (snow_3h, snow_1h) = match weather.snow {
-          None => (0.0, 0.0),
-          Some(precip) => {
-            (precip.three_hour.unwrap_or_default(), precip.one_hour.unwrap_or_default())
-          }
+            None => (0.0, 0.0),
+            Some(precip) => (
+                precip.three_hour.unwrap_or_default(),
+                precip.one_hour.unwrap_or_default(),
+            ),
         };
 
         let temp_min = weather.main.temp_min;
@@ -136,6 +184,7 @@ impl From<CurrentWeather> for LegacyRecord {
         let longtitude = weather.coord.lon;
 
         Self {
+            index: 0,
             city,
             description,
             icon,
@@ -161,6 +210,8 @@ impl From<CurrentWeather> for LegacyRecord {
             wind_speed,
             latitude,
             longtitude,
+
+            date_time,
         }
     }
 }

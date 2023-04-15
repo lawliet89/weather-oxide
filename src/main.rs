@@ -23,7 +23,18 @@ async fn main() -> Result<(), anyhow::Error> {
     while let Some(result) = weather.next().await {
         match result.await {
             Ok(call) => match call {
-                Ok(weather) => log::info!("{:?}", weather),
+                Ok(weather) => {
+                    log::debug!("{:?}", weather);
+                    let record = data::LegacyRecord::from(weather);
+                    match record.append(
+                        &client.config.output.directory,
+                        &client.config.output.extension,
+                        client.config.output.delimiter,
+                    ) {
+                        Ok(()) => log::info!("wrote entry for {}", record.city),
+                        Err(e) => log::error!("error appending entry {e}"),
+                    }
+                }
                 Err(e) => log::error!("error calling api: {e}"),
             },
             Err(e) => {

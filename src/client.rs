@@ -10,7 +10,7 @@ use tokio_stream::StreamExt;
 use crate::cli::Config;
 
 pub struct ConfigClient {
-    config: Config,
+    pub config: Config,
     client: Client,
     city_ids: Vec<CityId>,
 }
