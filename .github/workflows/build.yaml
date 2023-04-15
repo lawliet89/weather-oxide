@@ -56,6 +56,9 @@ jobs:
           - target: aarch64-unknown-linux-musl
             flags:
             runs_on: ubuntu-latest
+          - target: armv7-unknown-linux-musleabihf
+            flags:
+            runs_on: ubuntu-latest
 
     uses: ./.github/workflows/build_reusable.yaml
     with:
