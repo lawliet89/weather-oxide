@@ -1,7 +1,6 @@
 mod cli;
 
 use clap::Parser;
-use openweathermap_client::models::{City, Weather};
 use tokio_stream::StreamExt;
 
 /// Gets the temperature in °C and description of the weather in Paris right now
@@ -19,8 +18,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     tokio::pin!(weather);
 
-    while let Some(city) = weather.next().await {
-        println!("{:?}", city.unwrap().await);
+    while let Some(result) = weather.next().await {
+        match result.await {
+            Ok(reading) => {
+                println!("{:?}", reading);
+            }
+            Err(e) => {
+                log::error!("timeout fetching {e}");
+            }
+        }
         // let weather = city.unwrap();
     }
 
