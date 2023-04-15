@@ -3,19 +3,10 @@ mod client;
 mod data;
 
 use clap::Parser;
+use client::ConfigClient;
 use tokio_stream::StreamExt;
 
-/// Gets the temperature in °C and description of the weather in Paris right now
-#[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
-    pretty_env_logger::formatted_timed_builder()
-        .filter_level(log::LevelFilter::Info)
-        .init();
-    let cli = cli::Cli::parse();
-    log::info!("Reading configuration file...");
-    let config = cli.config()?;
-
-    let client = config.client()?;
+async fn get_weather(client: &ConfigClient) {
     let weather = client.get_weather();
 
     tokio::pin!(weather);
@@ -41,15 +32,23 @@ async fn main() -> Result<(), anyhow::Error> {
                 log::error!("timeout fetching {e}");
             }
         }
-        // let weather = city.unwrap();
     }
+}
 
-    // println!("{:?}", weather);
-    // let reading = client.fetch_weather(&City::new("Paris", "FR")).await?;
+/// Gets the temperature in °C and description of the weather in Paris right now
+#[tokio::main]
+async fn main() -> Result<(), anyhow::Error> {
+    pretty_env_logger::formatted_timed_builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    let cli = cli::Cli::parse();
+    log::info!("Reading configuration file...");
+    let config = cli.config()?;
+    let client = config.client()?;
 
-    // println!(
-    //     "The temperature and weather in France in French is {}, {}",
-    //     reading.main.temp, reading.weather[0].description
-    // );
-    Ok(())
+    loop {
+        get_weather(&client).await;
+        log::info!("Sleeping for 30 minutes");
+        tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+    }
 }

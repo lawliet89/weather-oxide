@@ -113,15 +113,18 @@ impl LegacyRecord {
         extension: &str,
         delimiter: char,
     ) -> Result<(), anyhow::Error> {
+        let path = self.path(base, extension);
+        let file_exists = path.exists();
+
         let file = File::options()
             .create(true)
             .append(true)
-            .open(self.path(base, extension))
+            .open(&path)
             .with_context(|| "cannot open file to append")?;
 
         let mut writer = csv::WriterBuilder::new()
             .delimiter(delimiter as u8)
-            .has_headers(false)
+            .has_headers(!file_exists)
             .from_writer(file);
         writer
             .serialize(self)
