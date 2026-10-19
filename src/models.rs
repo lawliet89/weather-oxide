@@ -6,7 +6,6 @@
 //! HTTP/TLS stack can be upgraded to `reqwest` + `rustls` 0.23.
 
 use serde::Deserialize;
-use std::fmt;
 
 /// City geo location.
 #[derive(Debug, Deserialize)]
@@ -72,7 +71,7 @@ pub struct PrecipVolume {
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct Sys {
-    #[serde(default)]
+    #[serde(rename = "type", default)]
     pub type_: Option<u64>,
     #[serde(default)]
     pub id: Option<u64>,
@@ -92,7 +91,8 @@ pub struct CurrentWeather {
     pub weather: Vec<Weather>,
     pub base: String,
     pub main: Main,
-    pub visibility: u64,
+    #[serde(default)]
+    pub visibility: Option<u64>,
     pub wind: Wind,
     pub clouds: Clouds,
     #[serde(default)]
@@ -105,23 +105,4 @@ pub struct CurrentWeather {
     pub id: u64,
     pub name: String,
     pub cod: u64,
-}
-
-/// Used to query the weather in a particular city using its OpenWeatherMap id.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct CityId {
-    pub id: u32,
-}
-
-impl CityId {
-    pub fn new(id: u32) -> CityId {
-        CityId { id }
-    }
-}
-
-impl fmt::Display for CityId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.id)
-    }
 }

@@ -146,7 +146,7 @@ impl From<CurrentWeather> for LegacyRecord {
 
         let city_id = weather.id;
 
-        let visibility = weather.visibility;
+        let visibility = weather.visibility.unwrap_or_default();
         let humidity = weather.main.humidity;
         let pressure = weather.main.pressure;
 
