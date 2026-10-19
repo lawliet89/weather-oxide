@@ -1,11 +1,8 @@
 use std::fs::File;
 
 use crate::client::ConfigClient;
-
 use anyhow::Context;
 use clap::Parser;
-use openweathermap_client::models::UnitSystem;
-use openweathermap_client::{Client, ClientOptions};
 use serde::{Deserialize, Serialize};
 
 /// Fetch weather information periodically
@@ -30,7 +27,6 @@ impl Cli {
 pub struct Config {
     pub api_key: String,
     pub city_ids: Vec<u32>,
-
     pub output: Output,
 }
 
@@ -46,16 +42,6 @@ pub struct Output {
 impl Config {
     pub fn client(&self) -> Result<ConfigClient, anyhow::Error> {
         ConfigClient::new(self)
-    }
-
-    pub fn api_client(&self) -> Result<Client, anyhow::Error> {
-        let options = ClientOptions {
-            units: UnitSystem::Metric,
-            language: "en".to_string(),
-            api_key: self.api_key.clone(),
-        };
-        let client = Client::new(options).with_context(|| "error making OpenWeatherMap Client")?;
-        Ok(client)
     }
 }
 

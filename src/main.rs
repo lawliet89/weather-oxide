@@ -1,6 +1,7 @@
 mod cli;
 mod client;
 mod data;
+mod models;
 
 use clap::Parser;
 use client::ConfigClient;
