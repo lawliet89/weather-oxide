@@ -106,3 +106,39 @@ pub struct CurrentWeather {
     pub name: String,
     pub cod: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::CurrentWeather;
+
+    const SAMPLE: &str = r#"{
+        "coord": {"lon": 103.85, "lat": 1.29},
+        "weather": [{"id": 803, "main": "Clouds", "description": "broken clouds", "icon": "04d"}],
+        "base": "stations",
+        "main": {"temp": 30.1, "feels_like": 35.2, "temp_min": 29.0, "temp_max": 31.0, "pressure": 1009, "humidity": 70},
+        "visibility": 10000,
+        "wind": {"speed": 4.1, "deg": 150},
+        "clouds": {"all": 75},
+        "dt": 1700000000,
+        "sys": {"type": 2, "id": 2075535, "country": "SG", "sunrise": 1699999000, "sunset": 1700042000},
+        "timezone": 28800,
+        "id": 1880252,
+        "name": "Singapore",
+        "cod": 200
+    }"#;
+
+    #[test]
+    fn deserializes_sys_type() {
+        let weather: CurrentWeather = serde_json::from_str(SAMPLE).unwrap();
+        assert_eq!(weather.sys.type_, Some(2));
+        assert_eq!(weather.visibility, Some(10000));
+    }
+
+    #[test]
+    fn missing_visibility_is_none() {
+        let mut value: serde_json::Value = serde_json::from_str(SAMPLE).unwrap();
+        value.as_object_mut().unwrap().remove("visibility");
+        let weather: CurrentWeather = serde_json::from_value(value).unwrap();
+        assert_eq!(weather.visibility, None);
+    }
+}

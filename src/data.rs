@@ -33,7 +33,7 @@ pub struct LegacyRecord {
 
     /// Visibility[m]
     #[serde(rename = "Visibility[m]")]
-    visibility: u64,
+    visibility: Option<u64>,
     /// Humidity[%]
     #[serde(rename = "Humidity[%]")]
     humidity: f64,
@@ -146,7 +146,7 @@ impl From<CurrentWeather> for LegacyRecord {
 
         let city_id = weather.id;
 
-        let visibility = weather.visibility.unwrap_or_default();
+        let visibility = weather.visibility;
         let humidity = weather.main.humidity;
         let pressure = weather.main.pressure;
 

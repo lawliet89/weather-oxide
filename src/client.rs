@@ -29,7 +29,6 @@ pub enum ApiCallError {
 pub struct ConfigClient {
     pub config: Config,
     client: reqwest::Client,
-    city_ids: Vec<u32>,
 }
 
 impl ConfigClient {
@@ -41,14 +40,10 @@ impl ConfigClient {
         Ok(Self {
             config: config.clone(),
             client,
-            city_ids: config.city_ids.clone(),
         })
     }
 
-    pub fn fetch_weather(
-        &self,
-        id: u32,
-    ) -> Result<impl Future<Output = Result<CurrentWeather, ApiCallError>> + '_, ApiCallError> {
+    pub async fn fetch_weather(&self, id: u32) -> Result<CurrentWeather, ApiCallError> {
         let id_string = id.to_string();
         let request = self
             .client
@@ -67,26 +62,24 @@ impl ConfigClient {
             "Fetch weather at URL with masked key: {}",
             mask(request.url().as_str(), &self.config.api_key)
         );
-        Ok(async move {
-            let response = self
-                .client
-                .execute(request)
+        let response = self
+            .client
+            .execute(request)
+            .await
+            // The URL contains the API key; strip it from the error so
+            // it can never leak into logs.
+            .map_err(|e| ApiCallError::RequestSend(e.without_url()))?;
+        let status = response.status();
+        if status == reqwest::StatusCode::OK {
+            let weather = response
+                .json::<CurrentWeather>()
                 .await
-                // The URL contains the API key; strip it from the error so
-                // it can never leak into logs.
-                .map_err(|e| ApiCallError::RequestSend(e.without_url()))?;
-            let status = response.status();
-            if status == reqwest::StatusCode::OK {
-                let weather = response
-                    .json::<CurrentWeather>()
-                    .await
-                    .map_err(|e| ApiCallError::ResponseParse(e.without_url()))?;
-                Ok(weather)
-            } else {
-                let body = response.text().await.unwrap_or_default();
-                Err(ApiCallError::InvalidResponseStatus { status, body })
-            }
-        })
+                .map_err(|e| ApiCallError::ResponseParse(e.without_url()))?;
+            Ok(weather)
+        } else {
+            let body = response.text().await.unwrap_or_default();
+            Err(ApiCallError::InvalidResponseStatus { status, body })
+        }
     }
 
     #[allow(clippy::needless_lifetimes)]
@@ -97,16 +90,11 @@ impl ConfigClient {
             Output = Result<Result<CurrentWeather, ApiCallError>, tokio::time::error::Elapsed>,
         > + 'a,
     > + 'a {
-        tokio_stream::iter(self.city_ids.iter().copied())
+        tokio_stream::iter(self.config.city_ids.iter().copied())
             .throttle(std::time::Duration::from_secs(1))
             .map(move |id| async move {
                 log::info!("Fetching weather for {}", id);
-                let fetch = self.fetch_weather(id);
-                match fetch {
-                    // Request could not be built; no future to await.
-                    Err(e) => Ok(Err(e)),
-                    Ok(future) => tokio::time::timeout(Duration::from_secs(5), future).await,
-                }
+                tokio::time::timeout(Duration::from_secs(5), self.fetch_weather(id)).await
             })
     }
 }
@@ -122,4 +110,28 @@ fn mask(s: &str, api_key: &str) -> String {
         "****".to_string()
     };
     s.replace(api_key, &masked)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mask;
+
+    #[test]
+    fn mask_replaces_key_keeping_first_three_chars() {
+        assert_eq!(
+            mask("https://x/?appid=abcdef&id=1", "abcdef"),
+            "https://x/?appid=abc****&id=1"
+        );
+    }
+
+    #[test]
+    fn mask_short_and_empty_keys() {
+        assert_eq!(mask("appid=abc", "abc"), "appid=****");
+        assert_eq!(mask("appid=", ""), "appid=");
+    }
+
+    #[test]
+    fn mask_handles_multibyte_keys() {
+        assert_eq!(mask("appid=aé1234", "aé1234"), "appid=aé1****");
+    }
 }
