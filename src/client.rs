@@ -1,6 +1,7 @@
 use std::future::Future;
 use std::time::Duration;
 
+use anyhow::Context;
 use tokio_stream::Stream;
 use tokio_stream::StreamExt;
 
@@ -15,7 +16,10 @@ pub enum ApiCallError {
     #[error("error building request: {0}")]
     RequestBuild(#[from] reqwest::Error),
     #[error("unexpected response. Status: {status}, Body: {body}")]
-    InvalidResponseStatus { status: reqwest::StatusCode, body: String },
+    InvalidResponseStatus {
+        status: reqwest::StatusCode,
+        body: String,
+    },
     #[error("error parsing response body: {0}")]
     ResponseParse(#[from] serde_json::Error),
 }
@@ -50,7 +54,10 @@ impl ConfigClient {
             "{V25_ENDPOINT}?units=metric&lang=en&appid={}&id={}",
             self.api_key, id.id
         );
-        log::debug!("Fetch weather at URL with masked key: {}", mask(&url, &self.api_key));
+        log::debug!(
+            "Fetch weather at URL with masked key: {}",
+            mask(&url, &self.api_key)
+        );
         async move {
             let response = self.client.get(&url).send().await?;
             let status = response.status();
@@ -93,5 +100,3 @@ fn mask(s: &str, api_key: &str) -> String {
     };
     s.replace(api_key, &masked)
 }
-
-use anyhow::Context;
