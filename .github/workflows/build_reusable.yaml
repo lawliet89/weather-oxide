@@ -17,6 +17,11 @@ on:
         type: boolean
         default: true
         required: false
+      use_cross:
+        description: Build with cross (containerised cross-compilation)
+        type: boolean
+        default: false
+        required: false
       runs_on:
         description: What to run on
         type: string
@@ -28,42 +33,47 @@ jobs:
     name: Build
     runs-on: ${{ inputs.runs_on }}
     steps:
-      - uses: haya14busa/action-cond@v1
-        id: release_flag
-        with:
-          cond: ${{ inputs.release }}
-          if_true: "--release"
-          if_false: ""
-
       - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ inputs.target }}
-          components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ${{ inputs.target }}${{ steps.release_flag.outputs.value }}
+          prefix-key: ${{ inputs.target }}${{ inputs.release && '--release' || '' }}
 
-      - name: Install cross-compilation tools
+      - name: Install mingw-w64 (windows-gnu only)
+        if: inputs.target == 'x86_64-pc-windows-gnu'
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools gcc-mingw-w64-x86-64
-          cargo install cross --locked
+          sudo apt-get install -y gcc-mingw-w64-x86-64
 
-      - name: Build
-        run: |
-          if [[ "${{ inputs.target }}" == *"musl"* ]]; then
-            cross build ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
-          else
-            cargo build ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
-          fi
+      - name: Install cross
+        if: inputs.use_cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross@0.2.5
+
+      - name: Build (cross)
+        if: inputs.use_cross
         env:
+          TARGET: ${{ inputs.target }}
+          CARGO_FLAGS: ${{ inputs.cargo_flags }}
+          RELEASE_FLAG: ${{ inputs.release && '--release' || '' }}
+        run: cross build $RELEASE_FLAG --target "$TARGET" $CARGO_FLAGS
+
+      - name: Build (native)
+        if: ${{ !inputs.use_cross }}
+        env:
+          TARGET: ${{ inputs.target }}
+          CARGO_FLAGS: ${{ inputs.cargo_flags }}
+          RELEASE_FLAG: ${{ inputs.release && '--release' || '' }}
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+        run: cargo build $RELEASE_FLAG --target "$TARGET" $CARGO_FLAGS
 
       - name: Upload binary artifact (release)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: ${{ inputs.release }}
         with:
           name: ${{ inputs.target }}
@@ -72,7 +82,7 @@ jobs:
             !target/${{ inputs.target }}/release/weather-oxide*.d
 
       - name: Upload binary artifact (debug)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: ${{ !inputs.release }}
         with:
           name: ${{ inputs.target }}
