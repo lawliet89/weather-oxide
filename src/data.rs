@@ -137,7 +137,7 @@ impl From<CurrentWeather> for LegacyRecord {
     fn from(weather: CurrentWeather) -> Self {
         let city = weather.name;
 
-        let reading = weather.weather.get(0).expect("to exist");
+        let reading = weather.weather.first().expect("to exist");
 
         let description = reading.description.clone();
         let icon = reading.icon.clone();
