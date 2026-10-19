@@ -108,10 +108,11 @@ pub struct CurrentWeather {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::CurrentWeather;
 
-    const SAMPLE: &str = r#"{
+    /// A realistic API response, shared with tests in other modules.
+    pub(crate) const SAMPLE: &str = r#"{
         "coord": {"lon": 103.85, "lat": 1.29},
         "weather": [{"id": 803, "main": "Clouds", "description": "broken clouds", "icon": "04d"}],
         "base": "stations",
@@ -140,5 +141,56 @@ mod tests {
         value.as_object_mut().unwrap().remove("visibility");
         let weather: CurrentWeather = serde_json::from_value(value).unwrap();
         assert_eq!(weather.visibility, None);
+    }
+
+    #[test]
+    fn deserializes_core_fields() {
+        let weather: CurrentWeather = serde_json::from_str(SAMPLE).unwrap();
+        assert_eq!(weather.name, "Singapore");
+        assert_eq!(weather.id, 1880252);
+        assert_eq!(weather.coord.lat, 1.29);
+        assert_eq!(weather.coord.lon, 103.85);
+        assert_eq!(weather.weather.len(), 1);
+        assert_eq!(weather.weather[0].main, "Clouds");
+        assert_eq!(weather.main.pressure, 1009.0);
+        assert_eq!(weather.clouds.cloudiness, 75.0);
+        assert_eq!(weather.sys.country.as_deref(), Some("SG"));
+        assert!(weather.rain.is_none());
+        assert!(weather.snow.is_none());
+        assert!(weather.wind.gust.is_none());
+    }
+
+    #[test]
+    fn deserializes_precipitation_keys() {
+        let mut value: serde_json::Value = serde_json::from_str(SAMPLE).unwrap();
+        let obj = value.as_object_mut().unwrap();
+        obj.insert("rain".into(), serde_json::json!({"1h": 0.5, "3h": 1.25}));
+        obj.insert("snow".into(), serde_json::json!({"3h": 2.0}));
+        let weather: CurrentWeather = serde_json::from_value(value).unwrap();
+
+        let rain = weather.rain.unwrap();
+        assert_eq!(rain.one_hour, Some(0.5));
+        assert_eq!(rain.three_hour, Some(1.25));
+
+        let snow = weather.snow.unwrap();
+        assert_eq!(snow.one_hour, None);
+        assert_eq!(snow.three_hour, Some(2.0));
+    }
+
+    #[test]
+    fn missing_optional_sys_fields_are_none() {
+        let mut value: serde_json::Value = serde_json::from_str(SAMPLE).unwrap();
+        value["sys"] = serde_json::json!({"sunrise": 1, "sunset": 2});
+        let weather: CurrentWeather = serde_json::from_value(value).unwrap();
+        assert_eq!(weather.sys.type_, None);
+        assert_eq!(weather.sys.id, None);
+        assert_eq!(weather.sys.country, None);
+    }
+
+    #[test]
+    fn missing_required_field_fails() {
+        let mut value: serde_json::Value = serde_json::from_str(SAMPLE).unwrap();
+        value.as_object_mut().unwrap().remove("main");
+        assert!(serde_json::from_value::<CurrentWeather>(value).is_err());
     }
 }
