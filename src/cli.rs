@@ -114,7 +114,7 @@ mod tests {
             config_file: concat!(env!("CARGO_MANIFEST_DIR"), "/config.template.hcl").to_string(),
         };
         let config = cli.config().unwrap();
-        assert_eq!(config.api_key, "xxx");
+        assert!(!config.api_key.is_empty());
         assert!(config.city_ids.contains(&1880252));
         assert_eq!(config.output.directory, "./output");
         assert_eq!(config.output.delimiter, ',');

@@ -224,8 +224,14 @@ mod tests {
 
     #[tokio::test]
     async fn fetch_weather_errors_do_not_leak_api_key() {
-        // Nothing is listening on this port, so the request fails to send.
-        let client = ConfigClient::with_endpoint(&config(vec![]), "http://127.0.0.1:1").unwrap();
+        // Reserve a free port, then release it so nothing is listening there
+        // and the request fails to send.
+        let addr = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap();
+        let client =
+            ConfigClient::with_endpoint(&config(vec![]), &format!("http://{addr}")).unwrap();
         let err = client.fetch_weather(1).await.unwrap_err();
         assert!(matches!(err, ApiCallError::RequestSend(_)), "{err:?}");
         assert!(!format!("{err} {err:?}").contains("test-key"), "{err:?}");

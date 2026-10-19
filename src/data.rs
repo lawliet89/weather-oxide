@@ -119,17 +119,22 @@ impl LegacyRecord {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("cannot create directory {}", parent.display()))?;
         }
-        let file_exists = path.exists();
-
         let file = File::options()
             .create(true)
             .append(true)
             .open(&path)
             .with_context(|| "cannot open file to append")?;
+        // Check the size rather than existence so an empty file left behind by
+        // an earlier failed run still gets a header.
+        let is_empty = file
+            .metadata()
+            .with_context(|| "cannot read file metadata")?
+            .len()
+            == 0;
 
         let mut writer = csv::WriterBuilder::new()
             .delimiter(delimiter as u8)
-            .has_headers(!file_exists)
+            .has_headers(is_empty)
             .from_writer(file);
         writer
             .serialize(self)
@@ -387,6 +392,21 @@ mod tests {
         let contents = std::fs::read_to_string(record.path(dir.path(), "tsv")).unwrap();
         let header = contents.lines().next().unwrap();
         assert_eq!(header, HEADER.replace(',', "\t"));
+    }
+
+    #[test]
+    fn append_writes_header_to_existing_empty_file() {
+        let dir = TempDir::new("empty-file");
+        let record = record_from(sample_value());
+        let path = record.path(dir.path(), "csv");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::File::create(&path).unwrap();
+
+        record.append(dir.path(), "csv", ',').unwrap();
+
+        let contents = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(contents.lines().next().unwrap(), HEADER);
+        assert_eq!(contents.lines().count(), 2);
     }
 
     #[test]
