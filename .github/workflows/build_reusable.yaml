@@ -1,4 +1,5 @@
 name: Build (Reusable)
+
 on:
   workflow_call:
     inputs:
@@ -34,34 +35,45 @@ jobs:
           if_true: "--release"
           if_false: ""
 
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ inputs.target }}
-          override: true
+          targets: ${{ inputs.target }}
           components: rustfmt, clippy
+
       - uses: Swatinem/rust-cache@v2
         with:
           prefix-key: ${{ inputs.target }}${{ steps.release_flag.outputs.value }}
 
-      - uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: build
-          args:  ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          cargo install cross --locked
+
+      - name: Build
+        run: |
+          if [[ "${{ inputs.target }}" == *"musl"* ]]; then
+            cross build ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
+          else
+            cargo build ${{ steps.release_flag.outputs.value }} --target ${{ inputs.target }} ${{ inputs.cargo_flags }}
+          fi
+
       - name: Upload binary artifact (release)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ inputs.release }}
         with:
           name: ${{ inputs.target }}
           path: |
             target/${{ inputs.target }}/release/weather-oxide*
+            !target/${{ inputs.target }}/release/weather-oxide*.d
 
       - name: Upload binary artifact (debug)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: ${{ !inputs.release }}
         with:
           name: ${{ inputs.target }}
           path: |
             target/${{ inputs.target }}/debug/weather-oxide*
+            !target/${{ inputs.target }}/debug/weather-oxide*.d
