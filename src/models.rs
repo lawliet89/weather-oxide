@@ -10,6 +10,7 @@ use std::fmt;
 
 /// City geo location.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Coord {
     pub lat: f64,
     pub lon: f64,
@@ -17,6 +18,7 @@ pub struct Coord {
 
 /// Weather condition description.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Weather {
     pub id: u64,
     pub main: String,
@@ -26,6 +28,7 @@ pub struct Weather {
 
 /// Main readings.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Main {
     pub temp: f64,
     pub feels_like: f64,
@@ -41,6 +44,7 @@ pub struct Main {
 
 /// Wind report.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Wind {
     pub speed: f64,
     pub deg: f64,
@@ -66,6 +70,7 @@ pub struct PrecipVolume {
 
 /// Additional information (sunrise/sunset, country).
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct Sys {
     #[serde(default)]
     pub type_: Option<u64>,
@@ -81,6 +86,7 @@ pub struct Sys {
 
 /// Main structure for responses from the OpenWeatherMap current-weather API.
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct CurrentWeather {
     pub coord: Coord,
     pub weather: Vec<Weather>,
@@ -103,6 +109,7 @@ pub struct CurrentWeather {
 
 /// Used to query the weather in a particular city using its OpenWeatherMap id.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct CityId {
     pub id: u32,
 }
