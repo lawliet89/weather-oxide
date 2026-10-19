@@ -4,9 +4,10 @@ use std::{
 };
 
 use anyhow::Context;
-use chrono::{DateTime, Datelike, NaiveDateTime, Utc};
-use openweathermap_client::models::CurrentWeather;
+use chrono::{DateTime, Datelike, Utc};
 use serde::Serialize;
+
+use crate::models::CurrentWeather;
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "PascalCase")]
@@ -32,7 +33,7 @@ pub struct LegacyRecord {
 
     /// Visibility[m]
     #[serde(rename = "Visibility[m]")]
-    visibility: u64,
+    visibility: Option<u64>,
     /// Humidity[%]
     #[serde(rename = "Humidity[%]")]
     humidity: f64,
@@ -149,10 +150,7 @@ impl From<CurrentWeather> for LegacyRecord {
         let humidity = weather.main.humidity;
         let pressure = weather.main.pressure;
 
-        let date_time = DateTime::<Utc>::from_utc(
-            NaiveDateTime::from_timestamp_opt(weather.dt, 0).expect("to exist"),
-            Utc,
-        );
+        let date_time = DateTime::<Utc>::from_timestamp(weather.dt, 0).expect("to exist");
         let time = date_time.format("%Y-%m-%d %H:%M:%S");
 
         let (rain_3h, rain_1h) = match weather.rain {
